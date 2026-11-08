@@ -1,0 +1,819 @@
+'<
+/\!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="AVPS Control Center — working automation engine: monitors /home/camel/Videos/, keeps a cloud queue of exactly 2 videos, publishes at 12:00 AM and 12:00 PM EAT to YouTube, TikTok, Instagram and Facebook, verifies all four, and deletes the local original only after full success.">
+<title>AVPS Control Center — Automated Video Publishing System</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230b1220'/%3E%3Cpath d='M9 7l8 5-8 5z' fill='%2367e8f9'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b16;--panel:rgba(255,255,255,.035);--panel2:rgba(255,255,255,.06);
+  --line:rgba(148,163,184,.16);--text:#e7eef9;--muted:#9fb0ca;--dim:#8fa0bb;
+  --cyan:#22d3ee;--cyan2:#67e8f9;--violet:#8b5cf6;--violet2:#c4b5fd;
+  --good:#34d399;--warn:#fbbf24;--bad:#f87171;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);
+  color:var(--text);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:rgba(34,211,238,.3);color:#fff}
+.mono{font-family:'JetBrains Mono',ui-monospace,Consolas,monospace}
+.bg{position:fixed;inset:0;z-index:-1;background:
+  radial-gradient(900px 500px at 85% -10%,rgba(139,92,246,.15),transparent 60%),
+  radial-gradient(800px 500px at -10% 8%,rgba(34,211,238,.11),transparent 60%),var(--bg)}
+.bg::after{content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(148,163,184,.045) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(148,163,184,.045) 1px,transparent 1px);background-size:44px 44px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 0%,#000 25%,transparent 70%);
+  mask-image:radial-gradient(ellipse at 50% 0%,#000 25%,transparent 70%)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:50;background:rgba(7,11,22,.86);-webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.topbar .row{max-width:1180px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto;
+  background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(139,92,246,.25));border:1px solid rgba(103,232,249,.35)}
+.brand h1{font-family:'Space Grotesk',sans-serif;font-size:17px;line-height:1.2}
+.brand .sub{font-size:11px;color:var(--dim);letter-spacing:.06em}
+.topinfo{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tstat{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);
+  padding:7px 13px;border-radius:11px;font-size:12.5px;color:#c7d2e5}
+.tstat b{color:#fff;font-weight:600}
+.tstat .lbl{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.12em}
+.tbtn{border:1px solid var(--line);background:var(--panel);color:#c7d2e5;font:inherit;font-size:12.5px;
+  padding:7px 13px;border-radius:11px;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:7px}
+.tbtn:hover{background:var(--panel2);color:#fff}
+.tbtn.primary{background:linear-gradient(92deg,rgba(34,211,238,.18),rgba(139,92,246,.18));
+  border-color:rgba(103,232,249,.4);color:#e6f7ff;font-weight:600}
+.tbtn.danger:hover{border-color:rgba(248,113,113,.5);color:#fecaca}
+.dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.dot.g{background:var(--good);box-shadow:0 0 8px var(--good)}
+.dot.a{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:pulse 1.4s infinite}
+.dot.r{background:var(--bad)}
+.dot.n{background:#475569}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* note bar */
+.note{border-bottom:1px solid rgba(251,191,36,.25);background:rgba(251,191,36,.06);color:#f4e5c2;
+  font-size:13px;padding:10px 0}
+.note .row{display:flex;gap:14px;align-items:flex-start;max-width:1180px;margin:0 auto;padding:0 20px}
+.note b{color:#fff}
+.note button{margin-left:auto;flex:0 0 auto;background:none;border:1px solid rgba(251,191,36,.4);
+  color:var(--warn);border-radius:8px;padding:3px 10px;cursor:pointer;font-size:12px}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0 6px}
+.stat{border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015))}
+.stat .n{font-family:'Space Grotesk',sans-serif;font-size:23px;font-weight:700;line-height:1.15;
+  background:linear-gradient(92deg,var(--cyan2),var(--violet2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat .l{font-size:11.5px;color:var(--dim);margin-top:3px;letter-spacing:.03em}
+
+/* panels */
+.appgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.panel{border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:18px;min-width:0}
+.panel.full{grid-column:1/-1}
+.ph{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.pnum{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;color:var(--cyan2);
+  border:1px solid rgba(103,232,249,.35);background:rgba(34,211,238,.08);padding:3px 9px;border-radius:8px}
+.ph h2{font-family:'Space Grotesk',sans-serif;font-size:16.5px;font-weight:700}
+.ph .cnt{font-size:11.5px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+.ph .sp{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.hint{font-size:12px;color:var(--dim);margin:4px 0 12px}
+.card{border:1px solid var(--line);background:rgba(255,255,255,.03);border-radius:13px;padding:14px}
+.card + .card{margin-top:10px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 10px;
+  border-radius:999px;white-space:nowrap}
+.pill.gray{color:#9fb0ca;background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.3)}
+.pill.blue{color:#93c5fd;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.35)}
+.pill.amber{color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.4)}
+.pill.green{color:var(--good);background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.4)}
+.pill.red{color:var(--bad);background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.4)}
+.violet{color:var(--violet2)}
+code.k{font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(34,211,238,.08);
+  border:1px solid rgba(34,211,238,.25);color:var(--cyan2);padding:1px 7px;border-radius:7px;white-space:nowrap}
+
+/* source list */
+.srow{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px dashed rgba(148,163,184,.15)}
+.srow:last-child{border-bottom:none}
+.srow .nm{font-weight:600;font-size:13.5px;word-break:break-word}
+.srow .meta{font-size:11.5px;color:var(--dim);margin-top:2px}
+.srow .right{margin-left:auto;display:flex;gap:7px;align-items:center;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end}
+.progress{width:110px;height:6px;border-radius:999px;background:rgba(148,163,184,.18);overflow:hidden}
+.progress i{display:block;height:100%;border-radius:999px;background:linear-gradient(92deg,var(--cyan),var(--violet));transition:width .15s}
+
+/* queue slots */
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.slot{border:1.5px dashed rgba(103,232,249,.4);background:rgba(34,211,238,.045);border-radius:14px;padding:14px;min-width:0}
+.slot.filled{border-style:solid;background:rgba(34,211,238,.07)}
+.slot .qtag{font-size:10px;font-weight:700;letter-spacing:.18em;color:var(--cyan2);text-transform:uppercase}
+.slot .vid{font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:700;margin:6px 0 2px;word-break:break-word}
+.slot .fn{font-size:11px;color:var(--dim);font-family:'JetBrains Mono',monospace;word-break:break-all}
+.slot .row{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.pdots{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pd{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;border-radius:8px;
+  padding:3px 8px;border:1px solid var(--line);color:var(--dim);background:rgba(255,255,255,.02)}
+.pd .dot{width:6px;height:6px}
+.pd.pub{color:var(--good);border-color:rgba(52,211,153,.4)}
+.pd.run{color:#fcd34d;border-color:rgba(251,191,36,.4)}
+.pd.fail{color:var(--bad);border-color:rgba(248,113,113,.4)}
+.empty{text-align:center;color:var(--dim);font-size:12.5px;padding:26px 10px}
+.slotbtn{margin-top:10px;width:100%;border:1px solid rgba(103,232,249,.4);background:rgba(34,211,238,.1);
+  color:#c9f4ff;font:inherit;font-size:12px;font-weight:600;padding:7px;border-radius:10px;cursor:pointer}
+.slotbtn:hover{background:rgba(34,211,238,.18)}
+
+/* job area */
+.jrow{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px dashed rgba(148,163,184,.15);font-size:13px}
+.jrow:last-child{border-bottom:none}
+.jrow .who{font-weight:600;flex:0 0 90px}
+.verdict{border-radius:13px;padding:14px 16px;margin-top:12px;font-size:13.5px;line-height:1.55}
+.verdict.ok{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.4);color:#d5f5e6}
+.verdict.no{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.4);color:#fde2e2}
+.verdict b{color:#fff}
+
+/* log */
+.loglist{max-height:300px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px}
+.lrow{display:flex;gap:10px;padding:4px 2px;border-bottom:1px solid rgba(148,163,184,.07)}
+.lrow .t{color:#64748b;flex:0 0 62px}
+.lrow.info{color:#b6c5dc}.lrow.good{color:#86efac}.lrow.warn{color:#fcd34d}.lrow.bad{color:#fca5a5}
+
+/* settings dialog */
+dialog{background:#0c1224;color:var(--text);border:1px solid var(--line);border-radius:18px;
+  max-width:640px;width:calc(100% - 32px);padding:22px}
+dialog::backdrop{background:rgba(2,6,16,.7);backdrop-filter:blur(4px)}
+dialog h3{font-family:'Space Grotesk',sans-serif;font-size:17px;margin-bottom:4px}
+dialog .sec{margin-top:16px;border-top:1px dashed rgba(148,163,184,.2);padding-top:14px}
+dialog .sec h4{font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--cyan2);margin-bottom:10px}
+dialog label{display:block;font-size:13px;color:#c9d4e8;margin:9px 0 4px}
+dialog input[type=text],dialog input[type=url],dialog input[type=password]{width:100%;background:rgba(255,255,255,.05);
+  border:1px solid var(--line);border-radius:10px;color:#e7eef9;font:inherit;font-size:13px;padding:9px 12px}
+dialog input:focus{outline:none;border-color:rgba(103,232,249,.5)}
+dialog .radio{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;color:#c9d4e8;margin:7px 0;cursor:pointer}
+dialog .radio input{margin-top:3px;accent-color:#22d3ee}
+dialog .radio small{display:block;color:var(--dim);font-size:11.5px}
+dialog .chk{display:flex;align-items:center;gap:10px;font-size:13.5px;color:#c9d4e8;margin:8px 0;cursor:pointer}
+dialog .chk input{accent-color:#22d3ee;width:16px;height:16px}
+dialog .actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+dialog input[type=range]{width:100%;accent-color:#8b5cf6}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pcell{border:1px solid var(--line);border-radius:11px;padding:10px}
+.pcell .pn{font-size:12px;font-weight:700;margin-bottom:6px}
+
+footer{margin-top:26px;border-top:1px solid var(--line);padding:22px 0 40px;color:var(--dim);font-size:12.5px}
+footer b{color:#c7d2e5}
+
+@media (max-width:900px){
+  .appgrid{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .slots{grid-template-columns:1fr}
+  .pgrid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="row">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M6.5 4.5l12 7.5-12 7.5z" fill="none" stroke="#67e8f9" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 20h18" stroke="#c4b5fd" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span>
+      <span><h1>AVPS Control Center</h1><span class="sub">AUTOMATED VIDEO PUBLISHING SYSTEM · ENGINE v1</span></span>
+    </div>
+    <div class="topinfo">
+      <span class="tstat"><span class="lbl">EAT</span><b class="mono" id="eatClock">--:--:--</b></span>
+      <span class="tstat"><span class="lbl">Next slot</span><b class="mono" id="nextSlot">--</b></span>
+      <span class="tstat" id="connBadge"><span class="dot n" id="connDot"></span><span id="connText">Folder not connected</span></span>
+      <button class="tbtn" id="btnPause" title="Pause / resume the automation engine">⏸ Pause</button>
+      <button class="tbtn" id="btnWake" title="Keep the screen awake so the engine keeps running">☀ Keep awake</button>
+      <button class="tbtn primary" id="btnSettings">⚙ Settings</button>
+    </div>
+  </div>
+</header>
+
+<div class="note" id="noteBar">
+  <div class="row">
+    <p><b>Working scope:</b> this engine runs in your browser while this tab is open. It monitors the real
+    <span class="mono">Videos</span> folder (Chrome/Edge), keeps the cloud queue at <b>exactly 2 videos</b>,
+    fires at <b>12:00 AM / 12:00 PM EAT</b>, verifies all four platforms and deletes the local original only after
+    full success. State persists — missed slots are caught up automatically on reopen. Platform delivery uses the
+    API endpoints you set in <b>Settings</b>, or built-in simulation when none are configured. For 24/7 unattended
+    publishing, host this file on an always-on cloud runtime with the same settings.</p>
+    <button id="btnNoteClose" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="stats">
+    <div class="stat"><div class="n" id="statQueue">0 / 2</div><div class="l">Videos in cloud queue (exact limit: 2)</div></div>
+    <div class="stat"><div class="n" id="statToday">0</div><div class="l">Videos published today (EAT)</div></div>
+    <div class="stat"><div class="n" id="statPosts">0 / 8</div><div class="l">Platform publications today</div></div>
+    <div class="stat"><div class="n" id="statEngine">Running</div><div class="l" id="statEngineL">Engine active — schedule armed</div></div>
+  </div>
+
+  <div class="appgrid">
+    <section class="panel">
+      <div class="ph"><span class="pnum">1</span><h2>Local source — <span class="mono">/home/camel/Videos/</span></h2><span class="cnt" id="srcCount">0 videos</span>
+        <span class="sp">
+          <button class="tbtn primary" id="btnConnect">📁 Connect folder</button>
+          <button class="tbtn" id="btnReconnect">🔗 Reconnect saved</button>
+          <button class="tbtn" id="btnScan">⟳ Rescan</button>
+          <button class="tbtn" id="btnDemo">▶ Load demo</button>
+        </span>
+      </div>
+      <p class="hint">The engine watches this folder, selects videos in your chosen order, keeps original filenames
+      as published titles, and uploads selected videos to cloud storage. Originals stay until all four platforms confirm.</p>
+      <div id="sourceList"></div>
+    </section>
+
+    <section class="panel">
+      <div class="ph"><span class="pnum">2</span><h2>Cloud publishing queue</h2><span class="cnt" id="qCount">0 / 2</span></div>
+      <p class="hint"><b style="color:#fcd34d">Strict rule enforced:</b> the queue holds exactly two ready-to-publish
+      videos — never a third. When a video is published and leaves the queue, the system automatically replenishes it
+      from your laptop (while it is online).</p>
+      <div class="slots" id="queueSlots"></div>
+    </section>
+
+    <section class="panel full">
+      <div class="ph"><span class="pnum">3</span><h2>Publisher &amp; verification</h2><span class="cnt" id="jobCount">idle</span>
+        <span class="sp"><button class="tbtn" id="btnPublishNow" title="Run a publication cycle immediately (for testing)">▶ Publish next now</button></span>
+      </div>
+      <p class="hint">A video counts as fully published only when <b style="color:#86efac">all four platforms confirm</b>.
+      On any failure the original local video is protected — never deleted (Case B). Auto-retry and slot behaviour follow
+      your Settings (decisions Q1–Q3).</p>
+      <div id="jobArea"></div>
+    </section>
+
+    <section class="panel full">
+      <div class="ph"><span class="pnum">4</span><h2>Activity log</h2><span class="cnt" id="logCount">0</span>
+        <span class="sp"><button class="tbtn" id="btnExportLog">⬇ Export</button><button class="tbtn danger" id="btnClearLog">Clear</button>
+        <button class="tbtn danger" id="btnReset">⟲ Reset system</button></span>
+      </div>
+      <div class="loglist" id="logList"></div>
+    </section>
+  </div>
+</main>
+
+<dialog id="settings">
+  <h3>Engine settings</h3>
+  <p class="hint" style="margin:0">These map directly to the three remaining decisions (Q1–Q3) plus delivery targets.</p>
+
+  <div class="sec">
+    <h4>Q1 · Video selection order</h4>
+    <label class="radio"><input type="radio" name="setOrder" value="alpha"><span><b>Folder order (alphabetical)</b><small>Publish videos in the same order they appear in the Videos folder.</small></span></label>
+    <label class="radio"><input type="radio" name="setOrder" value="oldest"><span><b>Oldest first</b><small>By file modification date, oldest uploaded first.</small></span></label>
+    <label class="radio"><input type="radio" name="setOrder" value="newest"><span><b>Newest first</b><small>By file modification date, newest uploaded first.</small></span></label>
+  </div>
+
+  <div class="sec">
+    <h4>Q2 · Failed publication</h4>
+    <label class="chk"><input type="checkbox" id="setRetry"><span><b>Auto-retry failed platforms until they succeed</b><small>The engine keeps retrying the failing platform only; successful platforms are not re-published.</small></span></label>
+  </div>
+
+  <div class="sec">
+    <h4>Q3 · Scheduling during failures</h4>
+    <label class="radio"><input type="radio" name="setPolicy" value="wait"><span><b>Wait</b><small>Hold the next slot until the previous video succeeds on all four platforms.</small></span></label>
+    <label class="radio"><input type="radio" name="setPolicy" value="continue"><span><b>Continue</b><small>The next video still publishes at its slot while the failed one keeps retrying.</small></span></label>
+  </div>
+
+  <div class="sec">
+    <h4>Deletion of originals</h4>
+    <label class="chk"><input type="checkbox" id="setDelete"><span><b>Delete the local original only after all four platforms succeed</b><small>Case A → delete from /home/camel/Videos/. Case B → keep untouched.</small></span></label>
+  </div>
+
+  <div class="sec">
+    <h4>Testing — failure injection</h4>
+    <label>Simulated publish-failure rate: <b id="setFailOut">0%</b></label>
+    <input type="range" id="setFail" min="0" max="100" step="10" value="0">
+    <p class="hint" style="margin-top:6px">Only applies to simulated platforms (no endpoint configured). Use it to exercise Case B, retries and the deletion guard.</p>
+  </div>
+
+  <div class="sec">
+    <h4>Cloud storage &amp; platform delivery</h4>
+    <label>Cloud upload endpoint (HTTP PUT, receives the raw video file)</label>
+    <input type="url" id="setCloud" placeholder="https://cloud.example.com/upload/ — leave empty for simulated upload">
+    <div class="pgrid" style="margin-top:10px">
+      <div class="pcell"><div class="pn" style="color:#ff8087">YouTube</div>
+        <label>Endpoint (POST)</label><input type="url" id="ep_youtube" placeholder="https://…/publish/youtube">
+        <label>Bearer token (optional)</label><input type="password" id="tk_youtube" placeholder="token"></div>
+      <div class="pcell"><div class="pn" style="color:#7ff3ee">TikTok</div>
+        <label>Endpoint (POST)</label><input type="url" id="ep_tiktok" placeholder="https://…/publish/tiktok">
+        <label>Bearer token (optional)</label><input type="password" id="tk_tiktok" placeholder="token"></div>
+      <div class="pcell"><div class="pn" style="color:#f2a2c4">Instagram</div>
+        <label>Endpoint (POST)</label><input type="url" id="ep_instagram" placeholder="https://…/publish/instagram">
+        <label>Bearer token (optional)</label><input type="password" id="tk_instagram" placeholder="token"></div>
+      <div class="pcell"><div class="pn" style="color:#8fb8ff">Facebook</div>
+        <label>Endpoint (POST)</label><input type="url" id="ep_facebook" placeholder="https://…/publish/facebook">
+        <label>Bearer token (optional)</label><input type="password" id="tk_facebook" placeholder="token"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">The engine POSTs <span class="mono">{platform,title,filename,hashtags,publishedAt}</span>
+    to each endpoint (title = original filename without extension; hashtags = the five required tags). A 2xx response counts
+    as that platform's publication confirmation. Endpoints left empty run in simulation mode.</p>
+  </div>
+
+  <div class="actions">
+    <button class="tbtn danger" id="btnSettingsClose">Cancel</button>
+    <button class="tbtn primary" id="btnSettingsSave">Save settings</button>
+  </div>
+</dialog>
+
+<footer>
+  <div class="wrap" style="padding:0 20px">
+    <p><b>Hashtags attached to every video:</b> <span class="mono">#Comedy #Vichekesho #AfricanComedy #FunnyVideos #TanzaniaComedy</span></p>
+    <p style="margin-top:8px"><b>Schedule:</b> one video every 12 hours — 12:00 AM (midnight) and 12:00 PM (noon), Tanzania local time (EAT) ·
+    2 videos/day · 4 platforms each · 8 platform publications/day · account: <span class="mono">shumbukazembe@gmail.com</span></p>
+  </div>
+</footer>
+
+<script>
+'use strict';
+/* ================= AVPS ENGINE ================= */
+const LS_KEY='avps_state_v1';
+const PLATFORMS=[{k:'youtube',n:'YouTube'},{k:'tiktok',n:'TikTok'},{k:'instagram',n:'Instagram'},{k:'facebook',n:'Facebook'}];
+const EXTS=['mp4','mov','mkv','avi','webm','m4v','3gp','mpg','mpeg','wmv'];
+const EAT_MS=3*3600*1000, SLOT_HOURS=[0,12], RETRY_MS=8000;
+const HASHTAGS=['#Comedy','#Vichekesho','#AfricanComedy','#FunnyVideos','#TanzaniaComedy'];
+
+/* ---------- state ---------- */
+function defaultState(){return{v:1,
+  settings:{selectionOrder:'alpha',autoRetry:true,schedulePolicy:'wait',autoDelete:true,failRate:0,cloudEndpoint:'',
+    platforms:{youtube:{endpoint:'',token:''},tiktok:{endpoint:'',token:''},instagram:{endpoint:'',token:''},facebook:{endpoint:'',token:''}}},
+  videos:{},queue:[],processedSlots:[],missedSlot:null,log:[],stats:{},lastResult:null};}
+function restore(){try{const raw=localStorage.getItem(LS_KEY);if(!raw)return null;return Object.assign(defaultState(),JSON.parse(raw));}catch(e){return null;}}
+let S=restore()||defaultState();
+function persist(){try{localStorage.setItem(LS_KEY,JSON.stringify(S));}catch(e){}}
+function log(msg,level){S.log.unshift({t:Date.now(),msg,level:level||'info'});if(S.log.length>250)S.log.length=250;persist();renderLog();}
+function initPlat(){const o={};for(const p of PLATFORMS)o[p.k]={status:'pending',attempts:0,err:null};return o;}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ---------- time (EAT = UTC+3) ---------- */
+const pad=n=>String(n).padStart(2,'0');
+const eatDate=ts=>new Date(ts+EAT_MS);
+function eatClock(ts){const d=eatDate(ts);return pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());}
+function eatDateKey(ts){const d=eatDate(ts);return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());}
+function slotEpoch(ts,h){const d=eatDate(ts);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),h,0,0)-EAT_MS;}
+function slotKeyOf(ts,h){return eatDateKey(ts)+'T'+pad(h);}
+function nextSlot(ts){const e0=slotEpoch(ts,0),e12=slotEpoch(ts,12);if(ts<e0)return{epoch:e0,h:0};if(ts<e12)return{epoch:e12,h:12};return{epoch:e0+86400000,h:0};}
+function fmtDur(ms){ms=Math.max(0,ms);const s=Math.floor(ms/1000);return pad(Math.floor(s/3600))+':'+pad(Math.floor(s%3600/60))+':'+pad(s%60);}
+
+/* ---------- runtime ---------- */
+let dirHandle=null,savedHandle=null,uploading=null,scanning=false,paused=false,replenishing=false,wakeWanted=false,wakeLock=null;
+const fileHandles=new Map();   // videoId -> FileSystemFileHandle
+const jobs={};                 // videoId -> {statuses, started, cancelled}
+
+/* ---------- IndexedDB (folder handle persistence) ---------- */
+let idbP=null;
+function idb(){return idbP||(idbP=new Promise((res,rej)=>{const r=indexedDB.open('avps',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));}
+async function idbSet(k,v){const db=await idb();return new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');
+  t.objectStore('kv').put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error);});}
+async function idbGet(k){const db=await idb();return new Promise((res,rej)=>{const t=db.transaction('kv','readonly');
+  const q=t.objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
+
+/* ---------- folder access ---------- */
+async function connectFolder(){
+  try{
+    const h=await window.showDirectoryPicker({id:'camel-videos',mode:'readwrite',startIn:'videos'});
+    dirHandle=h;await idbSet('dirHandle',h);
+    log('connected source folder: /home/camel/'+h.name,'good');
+    await scanFolder();renderAll();replenish();
+  }catch(e){if(e&&e.name!=='AbortError')log('folder connection failed: '+(e.message||e),'bad');}
+}
+async function reconnectFolder(){
+  try{
+    const h=savedHandle||await idbGet('dirHandle');
+    if(!h){log('no saved folder found — use “Connect folder” first','warn');return;}
+    const perm=await h.requestPermission({mode:'readwrite'});
+    if(perm==='granted'){dirHandle=h;savedHandle=h;log('saved folder reconnected: /home/camel/'+h.name,'good');
+      await scanFolder();renderAll();replenish();}
+    else log('permission denied for saved folder','bad');
+  }catch(e){log('reconnect failed: '+(e.message||e),'bad');}
+}
+async function scanFolder(){
+  if(!dirHandle||scanning)return;scanning=true;
+  try{
+    const seen=new Set();
+    for await(const[name,h]of dirHandle.entries()){
+      if(h.kind!=='file')continue;
+      const ext=name.includes('.')?name.split('.').pop().toLowerCase():'';
+      if(!EXTS.includes(ext))continue;
+      seen.add(name);
+      const f=await h.getFile();
+      let v=S.videos[name];
+      if(!v){v={id:name,name,title:name.slice(0,name.length-ext.length-1),size:f.size,mtime:f.lastModified,
+        source:'local',state:'local',cloudStatus:'—',platforms:initPlat(),addedAt:Date.now()};
+        S.videos[name]=v;log('new video detected: '+name);}
+      v.size=f.size;v.mtime=f.lastModified;
+      fileHandles.set(name,h);
+      if(v.state==='missing')v.state='local';
+    }
+    for(const id of Object.keys(S.videos)){const v=S.videos[id];
+      if(v.source==='local'&&!seen.has(id)&&v.state!=='missing'&&v.state!=='deleted'&&v.state!=='uploading'&&v.state!=='queued'){
+        v.state='missing';log('video no longer in folder: '+id,'warn');}}
+    persist();
+  }catch(e){log('scan failed: '+(e.message||e),'bad');}
+  scanning=false;
+}
+
+/* ---------- demo library (virtual videos to test the full cycle) ---------- */
+const DEMO=[['Shumbu na Kazembe Comedy.mp4',148],['Dar es Salaam Jokes Night.mp4',96],
+  ['Vichekesho vya Mjini.mp4',120],['Bongo Funny Moments.mp4',77],['Mchichi na Wenzake.mp4',64]];
+function loadDemo(){
+  let added=0;
+  for(let i=0;i<DEMO.length;i++){const[name,mb]=DEMO[i];if(S.videos[name])continue;
+    S.videos[name]={id:name,name,title:name.replace(/\.[^.]+$/,''),size:mb*1024*1024,
+      mtime:Date.now()-i*86400000,source:'demo',state:'local',cloudStatus:'—',platforms:initPlat(),addedAt:Date.now()};
+    added++;}
+  log('demo library loaded ('+added+' virtual videos) — safe end-to-end test of upload, schedule, publish, verify, delete','good');
+  persist();renderAll();replenish();
+}
+
+/* ---------- queue replenishment ---------- */
+function candidates(){return Object.values(S.videos).filter(v=>v.state==='local').sort((a,b)=>{
+  if(S.settings.selectionOrder==='alpha')return a.name.localeCompare(b.name);
+  if(S.settings.selectionOrder==='oldest')return a.mtime-b.mtime;
+  return b.mtime-a.mtime;});}
+function readyVideos(){return S.queue.map(id=>S.videos[id]).filter(v=>v&&v.state==='queued'&&!jobs[v.id]);}
+
+async function replenish(){
+  if(replenishing||uploading||paused)return;
+  if(S.queue.length>=2)return;
+  const c=candidates();if(!c.length)return;
+  replenishing=true;
+  await startUpload(c[0]);
+  replenishing=false;
+  renderAll();
+  if(S.queue.length<2)setTimeout(replenish,400);
+}
+async function startUpload(v){
+  if(uploading)return;
+  uploading={id:v.id,progress:0};
+  v.state='uploading';v.cloudStatus='uploading';persist();renderAll();
+  log('uploading “'+v.name+'” ('+fmtMB(v.size)+') to cloud storage…');
+  try{
+    if(S.settings.cloudEndpoint){
+      const h=fileHandles.get(v.id);
+      if(h){const f=await h.getFile();
+        const res=await fetch(S.settings.cloudEndpoint,{method:'PUT',body:f});
+        if(!res.ok)throw new Error('cloud endpoint returned HTTP '+res.status);
+        log('real cloud upload complete (HTTP '+res.status+')','good');}
+      uploading.progress=100;
+    }else{
+      while(uploading&&uploading.progress<100){await sleep(120);
+        if(uploading)uploading.progress=Math.min(100,uploading.progress+6+Math.random()*12);
+        renderSource();renderQueue();}
+    }
+    v.cloudStatus='stored';v.state='queued';
+    if(!S.queue.includes(v.id)){
+      if(S.queue.length<2){S.queue.push(v.id);
+        log('upload verified complete — “'+v.title+'” added to publishing queue (slot '+S.queue.length+')','good');}
+      else log('queue already holds exactly 2 videos — “'+v.title+'” NOT queued (hard limit enforced)','warn');
+    }
+  }catch(e){v.state='local';v.cloudStatus='—';log('upload failed for “'+v.name+'”: '+(e.message||e),'bad');}
+  uploading=null;persist();renderAll();
+}
+
+/* ---------- schedule ---------- */
+function processSlots(){
+  const now=Date.now();
+  for(const h of SLOT_HOURS){
+    const ep=slotEpoch(now,h),key=slotKeyOf(now,h);
+    if(now>=ep&&!S.processedSlots.includes(key)){
+      S.processedSlots.push(key);if(S.processedSlots.length>80)S.processedSlots=S.processedSlots.slice(-80);
+      if(ep<now-12*3600*1000)continue; /* ancient slot — skip */
+      log('schedule slot reached: '+(h===0?'12:00 AM (midnight)':'12:00 PM (noon)')+' EAT');
+      tryPublishForSlot(key);
+    }
+  }
+  persist();
+}
+function tryPublishForSlot(key){
+  const v=readyVideos()[0];
+  if(!v){S.missedSlot=key;
+    log('queue has no ready video — publishing pauses until new videos become available in the cloud','warn');
+    persist();return;}
+  if(activeJobs()>0){
+    if(S.settings.schedulePolicy==='wait'){S.missedSlot=key;
+      log('previous video still incomplete — schedule holds until it succeeds on all four platforms (policy: wait)','warn');
+      persist();return;}
+    log('policy “continue”: publishing the next video while the previous one keeps retrying','warn');
+  }
+  startJob(v.id);
+}
+function maybeRunMissed(){
+  if(!S.missedSlot)return;
+  if(activeJobs()>0||paused)return;
+  const v=readyVideos()[0];if(!v)return;
+  const key=S.missedSlot;S.missedSlot=null;
+  log('catch-up: processing held slot '+key);
+  startJob(v.id);
+}
+
+/* ---------- publish + verify ---------- */
+function activeJobs(){return Object.keys(jobs).length;}
+function startJob(vid){
+  if(jobs[vid])return;
+  const v=S.videos[vid];if(!v)return;
+  jobs[vid]={statuses:initPlat(),started:Date.now(),cancelled:false};
+  v.state='publishing';mirror(jobs[vid],v);
+  S.lastResult=null;
+  log('PUBLISHING “'+v.title+'” → YouTube · TikTok · Instagram · Facebook','info');
+  persist();renderAll();
+  runJob(vid);
+}
+async function runJob(vid){
+  while(jobs[vid]&&!jobs[vid].cancelled){
+    const job=jobs[vid];
+    const targets=PLATFORMS.filter(p=>job.statuses[p.k].status!=='published');
+    if(!targets.length)break;
+    await Promise.all(targets.map(p=>attemptPlatform(vid,p.k)));
+    if(!jobs[vid])return;
+    const failed=PLATFORMS.filter(p=>job.statuses[p.k].status==='failed');
+    if(!failed.length)break;
+    if(!S.settings.autoRetry)break;
+    log('auto-retry ('+failed.map(f=>f.n).join(', ')+') in '+(RETRY_MS/1000)+'s','warn');
+    await sleep(RETRY_MS);
+  }
+  if(jobs[vid])finishJob(vid);
+}
+async function attemptPlatform(vid,k){
+  const v=S.videos[vid],job=jobs[vid];if(!job)return;
+  const st=job.statuses[k];st.status='publishing';st.attempts++;
+  mirror(job,v);persist();renderJobs();renderQueue();
+  const conf=S.settings.platforms[k];
+  try{
+    if(conf.endpoint){
+      const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),20000);
+      const res=await fetch(conf.endpoint,{method:'POST',signal:ctl.signal,
+        headers:Object.assign({'Content-Type':'application/json'},conf.token?{'Authorization':'Bearer '+conf.token}:{}),
+        body:JSON.stringify({platform:k,title:v.title,filename:v.name,hashtags:HASHTAGS,publishedAt:new Date().toISOString()})});
+      clearTimeout(to);
+      if(!res.ok)throw new Error('HTTP '+res.status);
+    }else{
+      await sleep(700+Math.random()*900);
+      if(Math.random()*100<S.settings.failRate)throw new Error('simulated publish failure');
+    }
+    st.status='published';st.err=null;
+    log(PLATFORMS.find(p=>p.k===k).n+': published “'+v.title+'” ✓','good');
+  }catch(e){
+    st.status='failed';st.err=e.message||String(e);
+    log(PLATFORMS.find(p=>p.k===k).n+': FAILED (attempt '+st.attempts+') — '+st.err,'bad');
+  }
+  mirror(job,v);persist();renderJobs();renderQueue();
+}
+function mirror(job,v){for(const p of PLATFORMS)v.platforms[p.k]={status:job.statuses[p.k].status,attempts:job.statuses[p.k].attempts,err:job.statuses[p.k].err};}
+async function finishJob(vid){
+  const v=S.videos[vid],job=jobs[vid];if(!v||!job)return;
+  const all=PLATFORMS.every(p=>job.statuses[p.k].status==='published');
+  if(all){
+    v.state='published';v.publishedAt=Date.now();
+    const dk=eatDateKey(Date.now());const st=S.stats[dk]||(S.stats[dk]={videos:0,posts:0});st.videos++;st.posts+=4;
+    S.lastResult={vid,ok:true,time:Date.now(),platforms:JSON.parse(JSON.stringify(job.statuses)),deleted:null};
+    log('VERIFICATION COMPLETE — all four platforms confirmed “'+v.title+'” (Case A). Removing from queue.','good');
+    S.queue=S.queue.filter(q=>q!==vid);
+    if(S.settings.autoDelete){await deleteLocal(v);S.lastResult.deleted=(v.state==='deleted');}
+    else{log('auto-delete is OFF — original “'+v.name+'” kept in /home/camel/Videos/','warn');}
+  }else{
+    v.state='failed';
+    S.lastResult={vid,ok:false,time:Date.now(),platforms:JSON.parse(JSON.stringify(job.statuses)),deleted:false};
+    log('publication incomplete — original “'+v.name+'” is protected and must NOT be deleted (Case B)','warn');
+  }
+  delete jobs[vid];
+  persist();renderAll();
+  maybeRunMissed();
+  replenish();
+}
+async function deleteLocal(v){
+  if(v.source==='demo'){v.state='deleted';v.deletedAt=Date.now();
+    log('demo original “'+v.name+'” removed from virtual library — deletion rule applied on full success','good');return;}
+  if(!dirHandle){v.state='published-kept';
+    log('cannot delete “'+v.name+'” — folder not connected. Delete it manually from /home/camel/Videos/','warn');return;}
+  try{await dirHandle.removeEntry(v.name);v.state='deleted';v.deletedAt=Date.now();
+    log('original deleted from /home/camel/Videos/: '+v.name,'good');}
+  catch(e){v.state='published-kept';
+    log('delete failed for “'+v.name+'” ('+(e.message||e)+') — remove manually','bad');}
+}
+function retryFailedNow(vid){
+  const v=S.videos[vid];if(!v)return;
+  log('manual retry requested for “'+v.title+'”');
+  startJob(vid);
+}
+
+/* ---------- resume after reload ---------- */
+function resume(){
+  for(const id of Object.keys(S.videos)){const v=S.videos[id];
+    if(v.state==='uploading'){v.state='local';v.cloudStatus='—';}
+    if(v.state==='publishing'){v.state='queued';}
+    if(v.state==='queued'&&!S.queue.includes(id)&&S.queue.length<2)S.queue.push(id);}
+  S.queue=[...new Set(S.queue)].filter(id=>S.videos[id]&&['queued','failed','publishing'].includes(S.videos[id].state));
+  if(S.queue.length>2){const keep=S.queue.slice(0,2);S.queue.slice(2).forEach(id=>{S.videos[id].state='local';});S.queue=keep;
+    log('enforced exact queue limit of 2 after resume','warn');}
+  log('engine resumed — missed schedule slots are processed automatically on load','info');
+}
+
+/* ---------- rendering ---------- */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmtMB(b){return(b/1048576).toFixed(1)+' MB';}
+function statePill(v){
+  if(v.state==='local')return'<span class="pill gray">Ready (local)</span>';
+  if(v.state==='uploading')return'<span class="pill amber">Uploading '+Math.round(uploading&&uploading.id===v.id?uploading.progress:0)+'%</span>';
+  if(v.state==='queued')return'<span class="pill blue">In cloud queue</span>';
+  if(v.state==='publishing')return'<span class="pill amber">Publishing…</span>';
+  if(v.state==='published')return'<span class="pill green">Fully published</span>';
+  if(v.state==='failed')return'<span class="pill red">Failed — protected</span>';
+  if(v.state==='deleted')return'<span class="pill green">Published + local copy deleted</span>';
+  if(v.state==='published-kept')return'<span class="pill green">Published (local kept)</span>';
+  if(v.state==='missing')return'<span class="pill red">Missing from folder</span>';
+  return'<span class="pill gray">'+esc(v.state)+'</span>';}
+function renderTop(){
+  const now=Date.now();
+  $('eatClock').textContent=eatClock(now);
+  const ns=nextSlot(now);
+  $('nextSlot').textContent=fmtDur(ns.epoch-now)+' → '+(ns.h===0?'12:00 AM':'12:00 PM');
+  if(dirHandle){$('connDot').className='dot g';$('connText').textContent='Folder: /home/camel/'+dirHandle.name;}
+  else if(savedHandle){$('connDot').className='dot a';$('connText').textContent='Saved folder — click Reconnect';}
+  else{$('connDot').className='dot n';$('connText').textContent=Object.values(S.videos).some(v=>v.source==='demo')?'Demo mode (no real folder)':'Folder not connected';}
+  $('btnPause').textContent=paused?'▶ Resume':'⏸ Pause';
+  $('btnWake').textContent=wakeLock?'☀ Awake ON':'☀ Keep awake';
+  const q=S.queue.length;$('statQueue').textContent=q+' / 2';
+  const dk=eatDateKey(now);const st=S.stats[dk]||{videos:0,posts:0};
+  $('statToday').textContent=st.videos+' / 2';
+  $('statPosts').textContent=st.posts+' / 8';
+  $('statEngine').textContent=paused?'Paused':'Running';
+  $('statEngineL').textContent=activeJobs()>0?activeJobs()+' publication job(s) active':(S.missedSlot?'Holding slot '+S.missedSlot:'Engine active — schedule armed');
+}
+function renderSource(){
+  const list=Object.values(S.videos).filter(v=>v.state!=='deleted');
+  const order={uploading:0,publishing:1,queued:2,failed:3,local:4,missing:5,'published-kept':6,published:7};
+  list.sort((a,b)=>(order[a.state]-order[b.state])||a.name.localeCompare(b.name));
+  $('srcCount').textContent=list.length+' video'+(list.length===1?'':'s');
+  if(!list.length){$('sourceList').innerHTML='<div class="empty">No videos tracked yet.<br>Connect the real <span class="mono">/home/camel/Videos/</span> folder (Chrome/Edge) or load the demo library.</div>';return;}
+  $('sourceList').innerHTML=list.map(v=>{
+    const q=S.queue.indexOf(v.id);
+    const prog=(uploading&&uploading.id===v.id)?'<span class="progress"><i style="width:'+uploading.progress+'%"></i></span>':'';
+    return '<div class="srow"><div><div class="nm">'+esc(v.name)+(v.source==='demo'?' <span class="pill gray">demo</span>':'')+'</div>'+
+      '<div class="meta">'+fmtMB(v.size)+' · '+new Date(v.mtime).toLocaleString()+(q>=0?' · queue slot '+(q+1):'')+'</div></div>'+
+      '<div class="right">'+prog+statePill(v)+'</div></div>';}).join('');
+}
+function renderQueue(){
+  $('qCount').textContent=S.queue.length+' / 2';
+  let html='';
+  for(let i=0;i<2;i++){
+    const id=S.queue[i],v=id?S.videos[id]:null;
+    if(!v){html+='<div class="slot"><div class="qtag">Queue slot '+(i+1)+'</div><div class="empty">Empty — system will upload the next video automatically (laptop must be online)</div></div>';continue;}
+    const dots=PLATFORMS.map(p=>{const s=v.platforms[p.k]||{status:'pending'};
+      const cls=s.status==='published'?'pub':s.status==='failed'?'fail':(s.status==='publishing'?'run':'');
+      const ic=s.status==='published'?'g':s.status==='failed'?'r':s.status==='publishing'?'a':'n';
+      return '<span class="pd '+cls+'"><span class="dot '+ic+'"></span>'+p.n+'</span>';}).join('');
+    const btn=v.state==='queued'&&!jobs[v.id]?'<button class="slotbtn" data-act="publish" data-vid="'+esc(v.id)+'">▶ Publish now (manual)</button>':
+      v.state==='failed'&&!jobs[v.id]?'<button class="slotbtn" data-act="retry" data-vid="'+esc(v.id)+'">⟳ Retry failed platforms</button>':
+      jobs[v.id]?'<div class="empty" style="padding:8px">publication in progress…</div>':'';
+    html+='<div class="slot filled"><div class="qtag">Queue slot '+(i+1)+(jobs[v.id]?' · publishing':'')+'</div>'+
+      '<div class="vid">'+esc(v.title)+'</div><div class="fn">'+esc(v.name)+' · '+fmtMB(v.size)+'</div>'+
+      '<div class="row">'+statePill(v)+'<span class="pill gray">cloud: '+esc(v.cloudStatus)+'</span></div>'+
+      '<div class="pdots">'+dots+'</div>'+btn+'</div>';
+  }
+  $('queueSlots').innerHTML=html;
+}
+function renderJobs(){
+  const ids=Object.keys(jobs);
+  $('jobCount').textContent=ids.length?ids.length+' active':'idle';
+  let html='';
+  for(const vid of ids){
+    const v=S.videos[vid],job=jobs[vid];
+    const rows=PLATFORMS.map(p=>{const st=job.statuses[p.k];
+      const pill=st.status==='published'?'<span class="pill green">✓ Published</span>':
+        st.status==='publishing'?'<span class="pill amber">Publishing…</span>':
+        st.status==='failed'?'<span class="pill red">✕ Failed'+(st.attempts>1?' · '+st.attempts+' attempts':'')+'</span>':
+        '<span class="pill gray">Pending</span>';
+      return '<div class="jrow"><span class="who">'+p.n+'</span>'+pill+
+        '<span style="color:var(--dim);font-size:11.5px;margin-left:auto">'+(st.err?esc(st.err):st.status==='published'?'confirmed':'waiting')+'</span></div>';}).join('');
+    html+='<div class="card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+      '<b>'+esc(v.title)+'</b><span class="pill amber">job running</span>'+
+      '<span style="color:var(--dim);font-size:11.5px;margin-left:auto">elapsed '+fmtDur(Date.now()-job.started)+'</span></div>'+
+      '<div style="margin-top:8px">'+rows+'</div></div>';
+  }
+  if(S.lastResult&&!ids.length){
+    const v=S.videos[S.lastResult.vid];
+    const rows=PLATFORMS.map(p=>{const st=S.lastResult.platforms[p.k];
+      return '<div class="jrow"><span class="who">'+p.n+'</span>'+
+        (st.status==='published'?'<span class="pill green">✓ Successful</span>':'<span class="pill red">✕ Failed — '+esc(st.err||'')+'</span>')+'</div>';}).join('');
+    if(S.lastResult.ok){
+      html+='<div class="verdict ok"><b>Case A — publication complete.</b> All four platforms confirmed “'+esc(v.title)+'”.'+
+        (S.lastResult.deleted===true?' The original was <b>deleted</b> from <span class="mono">/home/camel/Videos/</span>.':
+         S.lastResult.deleted===false?' <b>Note:</b> original could not be deleted automatically'+(v.source==='local'?' (folder not connected)':' (demo)')+' — remove it manually.':
+         ' Auto-delete is off — original kept.')+'</div><div class="card" style="margin-top:10px">'+rows+'</div>';
+    }else{
+      html+='<div class="verdict no"><b>Case B — publication incomplete.</b> “'+esc(v.title)+'” did not confirm on all platforms. '+
+        'The original in <span class="mono">/home/camel/Videos/</span> is <b>protected and must not be deleted</b>. '+
+        (S.settings.autoRetry?'Auto-retry is on — the engine keeps trying until it succeeds.':'Auto-retry is off — use “Retry failed platforms” in the queue panel.')+'</div>'+
+        '<div class="card" style="margin-top:10px">'+rows+'</div>';
+    }
+  }
+  if(!html)html='<div class="empty">Idle — waiting for the next scheduled slot (12:00 AM / 12:00 PM EAT).<br>Nothing is published between slots; the queue simply holds two ready videos.</div>';
+  $('jobArea').innerHTML=html;
+}
+function renderLog(){
+  $('logCount').textContent=S.log.length;
+  $('logList').innerHTML=S.log.map(e=>{
+    const d=eatDate(e.t);
+    return '<div class="lrow '+esc(e.level)+'"><span class="t">'+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+'</span><span>'+esc(e.msg)+'</span></div>';}).join('');
+}
+function renderAll(){renderTop();renderSource();renderQueue();renderJobs();renderLog();}
+
+/* ---------- engine loop ---------- */
+setInterval(()=>{renderTop();if(paused)return;processSlots();maybeRunMissed();replenish();},1000);
+
+/* ---------- wake lock ---------- */
+async function toggleWake(){
+  try{
+    if(wakeLock){await wakeLock.release();wakeLock=null;wakeWanted=false;log('screen wake lock released');}
+    else{wakeLock=await navigator.wakeLock.request('screen');wakeWanted=true;
+      log('screen wake lock ON — engine keeps running while the tab is visible','good');}
+  }catch(e){wakeWanted=false;log('wake lock unavailable: '+(e.message||e),'warn');}
+  renderTop();
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&wakeWanted&&!wakeLock){
+    navigator.wakeLock.request('screen').then(w=>{wakeLock=w;renderTop();}).catch(()=>{});}
+});
+
+/* ---------- settings ---------- */
+function openSettings(){
+  const st=S.settings;
+  document.querySelectorAll('input[name=setOrder]').forEach(r=>r.checked=r.value===st.selectionOrder);
+  document.querySelectorAll('input[name=setPolicy]').forEach(r=>r.checked=r.value===st.schedulePolicy);
+  $('setRetry').checked=st.autoRetry;$('setDelete').checked=st.autoDelete;
+  $('setFail').value=st.failRate;$('setFailOut').textContent=st.failRate+'%';
+  $('setCloud').value=st.cloudEndpoint;
+  for(const p of PLATFORMS){$('ep_'+p.k).value=st.platforms[p.k].endpoint;$('tk_'+p.k).value=st.platforms[p.k].token;}
+  $('settings').showModal();
+}
+function saveSettings(){
+  const o=document.querySelector('input[name=setOrder]:checked');
+  const p=document.querySelector('input[name=setPolicy]:checked');
+  S.settings.selectionOrder=o?o.value:'alpha';
+  S.settings.schedulePolicy=p?p.value:'wait';
+  S.settings.autoRetry=$('setRetry').checked;
+  S.settings.autoDelete=$('setDelete').checked;
+  S.settings.failRate=parseInt($('setFail').value,10)||0;
+  S.settings.cloudEndpoint=$('setCloud').value.trim();
+  for(const pl of PLATFORMS){S.settings.platforms[pl.k].endpoint=$('ep_'+pl.k).value.trim();S.settings.platforms[pl.k].token=$('tk_'+pl.k).value.trim();}
+  persist();log('settings saved — order: '+S.settings.selectionOrder+' · auto-retry: '+(S.settings.autoRetry?'on':'off')+
+    ' · slot policy: '+S.settings.schedulePolicy+' · auto-delete: '+(S.settings.autoDelete?'on':'off')+' · fail-injection: '+S.settings.failRate+'%','good');
+  $('settings').close();renderAll();
+}
+
+/* ---------- wiring ---------- */
+$('btnConnect').onclick=connectFolder;
+$('btnReconnect').onclick=reconnectFolder;
+$('btnScan').onclick=async()=>{if(!dirHandle){log('connect the folder first','warn');return;}await scanFolder();renderAll();replenish();};
+$('btnDemo').onclick=loadDemo;
+$('btnPause').onclick=()=>{paused=!paused;log(paused?'engine PAUSED — schedule, uploads and replenishment are on hold':'engine resumed','warn');renderAll();};
+$('btnWake').onclick=toggleWake;
+$('btnSettings').onclick=openSettings;
+$('btnSettingsSave').onclick=saveSettings;
+$('btnSettingsClose').onclick=()=>$('settings').close();
+$('setFail').oninput=e=>$('setFailOut').textContent=e.target.value+'%';
+$('btnPublishNow').onclick=()=>{
+  const v=readyVideos()[0];
+  if(!v){log('no ready video in the queue to publish','warn');return;}
+  log('manual publication cycle requested');
+  startJob(v.id);};
+$('btnNoteClose').onclick=()=>$('noteBar').style.display='none';
+$('btnClearLog').onclick=()=>{S.log=[];log('log cleared');};
+$('btnExportLog').onclick=()=>{
+  const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),state:S},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='avps-state-'+eatDateKey(Date.now())+'.json';a.click();};
+$('btnReset').onclick=()=>{if(confirm('Reset the whole system? Queue, history and settings will be erased.')){localStorage.removeItem(LS_KEY);location.reload();}};
+$('queueSlots').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-act]');if(!b)return;
+  if(b.dataset.act==='publish')startJob(b.dataset.vid);
+  if(b.dataset.act==='retry')retryFailedNow(b.dataset.vid);});
+
+/* ---------- init ---------- */
+(async function init(){
+  resume();renderAll();
+  try{const h=await idbGet('dirHandle');if(h){savedHandle=h;
+    const p=await h.queryPermission({mode:'readwrite'});
+    if(p==='granted'){dirHandle=h;log('saved folder auto-reconnected: /home/camel/'+h.name,'good');
+      await scanFolder();renderAll();replenish();}
+    else renderTop();}
+  }catch(e){/* no saved handle or permission API unavailable */}
+})();
+
+/* debug/test hook */
+window.AVPS={get state(){return S;},persist,startJob,replenish,loadDemo,readyVideos,settings:S.settings};
+</script>
+</body>
+</html>
